@@ -1,39 +1,53 @@
 // index.js
-const { Client, GatewayIntentBits, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, Events } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, Events, MessageFlags, SlashCommandBuilder, Collection, ActionRow } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
 const client = new Client({ 
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
+require('dotenv').config();
 const TOKEN = process.env.DISCORD_TOKEN;
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
+client.commands = new Collection();
+
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`);
+  client.commands.set(command.data.name, command);
+}
+
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const command = client.commands.get(interaction.commandName);
+  if (!command) return;
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({ content: '명령어 실행 중 오류가 발생했어요.' });
+  }
+});
+
 // 명령어 처리
 client.on('messageCreate', message => {
-  const prefix = '*';
+  const prefix = '!';
   if (!message.content.startsWith(prefix) || message.author.bot) return;
+
+  // 명령어 즉시 삭제
+  message.delete().catch(console.error);
 
   const [command, ...args] = message.content.slice(prefix.length).trim().split(/ +/);
 
-  // 정보 명령어
-  if (command === '정보') {
-    const embed = new EmbedBuilder()
-      .setTitle('봇 정보')
-      .setDescription('이 봇은 다양한 기능을 지원해요!')
-      .setColor(0x00AE86)
-      .addFields(
-        { name: '개발자', value: '나그네' },
-        { name: '명령어', value: '정보, 버튼' }
-      )
-      .setTimestamp();
-
-    message.channel.send({ embeds: [embed] });
-  }
-  
-  // 인사 버튼 명령어
-  else if (command === '버튼') {
+  // 인사 명령어
+  if (command === '버튼') {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
       .setCustomId('hello_btn')
@@ -43,26 +57,11 @@ client.on('messageCreate', message => {
       new ButtonBuilder()
       .setCustomId('bye_btn')
       .setLabel('👋 작별인사')
-      .setStyle(ButtonStyle.Secondary),
+      .setStyle(ButtonStyle.Danger),
     );
 
     message.channel.send({
       content: '아래 버튼 중 하나를 눌러 상호작용을 해보세요!',
-      components: [row],
-    });
-  }
-
-  // 주사위 굴리기 버튼 명령어
-  else if (command === '주사위') {
-    const button = new ButtonBuilder()
-      .setCustomId('dice_btn')
-      .setLabel('🎲 주사위 던지기')
-      .setStyle(ButtonStyle.Primary);
-
-    const row = new ActionRowBuilder().addComponents(button);
-
-    message.channel.send({
-      content: '버튼을 눌러 주사위를 굴리세요!',
       components: [row],
     });
   }
@@ -96,47 +95,41 @@ const buttonHandlers = {
 
   // 인사 버튼
   hello_btn: async (interaction) => {
+    const originalMessage = interaction.message;
+
+    originalMessage.delete().catch(console.error);
+
     await interaction.reply({
       content: '안녕하세요! 👋',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   },
 
   // 작별 인사 버튼
   bye_btn: async (interaction) => {
-    await interaction.reply({
-      content: '안녕히 가세요 🥲',
-      ephemeral: true,
-    });
-  },
-
-  // 주사위 버튼
-  dice_btn: async (interaction) => {
-    const dice = Math.floor(Math.random() * 6) + 1;
-
     const originalMessage = interaction.message;
 
-    await originalMessage.edit({
-      content: `주사위 결과 : **${dice}**`,
-      components: [],
+    originalMessage.delete().catch(console.error);
+
+    await interaction.reply({
+      content: '안녕히 가세요 👋',
+      flags: MessageFlags.Ephemeral,
     });
   },
-};
+}
 
-// 버튼 상호작용
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isButton()) return;
-
-  const handler = buttonHandlers[interaction.customId];
-  if (handler) {
-    await handler(interaction);
-  } else {
-    await interaction.reply({
-      content: '알 수 없는 버튼입니다.',
-      ephemeral: true,
-    });
+client.on('interactionCreate', async interaction => { 
+  if (interaction.isButton()) {
+    const command = client.commands.find(cmd => cmd.buttons && cmd.buttons[interaction.customId]);
+    if (command) {
+      try {
+        await command.buttons[interaction.customId](interaction);
+      } catch (error) {
+        console.error(error);
+        await interaction.reply({ content: '버튼 처리 중 오류가 발생했어요.', ephemeral: true });
+      }
+    }
   }
 });
-  
 
-client.login(TOKEN);
+client.login(process.env.DISCORD_TOKEN);
