@@ -13,6 +13,7 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
+// 명령어 파일 불러오기기
 client.commands = new Collection();
 
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
@@ -22,17 +23,25 @@ for (const file of commandFiles) {
   client.commands.set(command.data.name, command);
 }
 
+// 명령어 파일 처리하기
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+    .setCustomId('delete_btn')
+    .setLabel('메세지 삭제')
+    .setStyle(ButtonStyle.Danger),
+  );
+
   try {
     await command.execute(interaction);
   } catch (error) {
     console.error(error);
-    await interaction.reply({ content: '명령어 실행 중 오류가 발생했어요.' });
+    await interaction.reply({ content: '명령어 실행 중 오류가 발생했어요.', components: [] });
   }
 });
 
@@ -118,9 +127,12 @@ const buttonHandlers = {
   },
 }
 
+// 버튼 처리 코드
 client.on('interactionCreate', async interaction => { 
   if (interaction.isButton()) {
     const command = client.commands.find(cmd => cmd.buttons && cmd.buttons[interaction.customId]);
+    if (!command) return;
+
     if (command) {
       try {
         await command.buttons[interaction.customId](interaction);

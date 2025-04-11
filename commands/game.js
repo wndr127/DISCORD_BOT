@@ -18,11 +18,18 @@ module.exports = {
             .setCustomId('roulette_btn')
             .setLabel('🎡 룰렛 돌리기')
             .setStyle(ButtonStyle.Primary),
-          )
+        )
+
+        const row2 = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+          .setCustomId('delete_btn')
+          .setLabel('메세지 삭제')
+          .setStyle(ButtonStyle.Danger),
+        )
       
           await interaction.reply({
             content: '원하는 게임을 플레이하세요!',
-            components: [row],
+            components: [row, row2],
           });
     },
 
