@@ -5,7 +5,8 @@ const hwPath = './hw.json';
 let hw_list = [];
 
 try {
-    hw_list = JSON.parse(fs.readFileSync('./hw.json'));
+    hw_list = JSON.parse(fs.readFileSync(hwPath, 'utf-8'));
+
 } catch (err) {
     console.log('과제 데이터가 없어 새로 시작합니다.');
     hw_list = [];
@@ -16,6 +17,8 @@ function saveHwList() {
 }
 
 function createHwEmbed() {
+    hw_list = JSON.parse(fs.readFileSync(hwPath, 'utf-8'));
+
     return new EmbedBuilder()
         .setColor('80E12A')
         .setTitle('📃 과제 목록')
@@ -86,6 +89,7 @@ module.exports = {
 
     buttons: {
         hw_list_btn: async (interaction) => {
+            
             const embed = createHwEmbed();
 
             const row1 = new ActionRowBuilder().addComponents(
@@ -147,19 +151,20 @@ module.exports = {
                 .setLabel('취소')
                 .setStyle(ButtonStyle.Danger),
             )
+
             await interaction.update({ content: '추가 할 과제를 입력하세요.', embeds: [], components: [row2] })
 
             const filter = m => m.author.id === interaction.user.id;
-            const collector = interaction.channel.createMessageCollector({ filter, time: 15000, max: 1 });
+            const collector = interaction.channel.createMessageCollector({ filter, time: 60000, max: 1 });
 
             collector.on('collect', async msg => {
                 hw_list.push(`📌 ${msg.content}`);
 
                 fs.writeFileSync(hwPath, JSON.stringify(hw_list, null, 2));
 
-                const embed = createHwEmbed();
-                await interaction.editReply({ embeds: [embed], content: '', components: [row1, row2] });
                 msg.delete().catch(console.error);
+                await interaction.editReply({ embeds: [createHwEmbed()], content: '', components: [row1, row2] });
+                
             });
 
         },
@@ -207,31 +212,34 @@ module.exports = {
             }
 
             const filter = m => m.author.id === interaction.user.id;
-            const collector = interaction.channel.createMessageCollector({ filter, time: 15000, max: 1 });
+            const collector = interaction.channel.createMessageCollector({ filter, time: 60000, max: 1 });
 
             collector.on('collect', async msg => {
                 const index = parseInt(msg.content);
-
+                const data = JSON.parse(fs.readFileSync(hwPath, 'utf-8'));
+                
                 if (isNaN(index)) {
-                    msg.reply({ content: '숫자를 입력해주세요.', embeds: [], components: [] }).then(m => setTimeout(() => m.delete(), 5000));
+                    await msg.reply({ content: '숫자를 입력해주세요.' }).then(m => setTimeout(() => m.delete(), 5000));
                     await interaction.editReply({ embeds: [createHwEmbed()], components: [row1, row2] });
+                    msg.delete().catch(console.error);
+                    return;
+                }
+
+                if (index < 1 || index > data.length) {
+                    await msg.reply({ content: `범위 내의 숫자를 입력해주세요. (1 ~ ${data.length})` }).then(m => {
+                        setTimeout(() => m.delete().catch(console.error), 5000);
+                    });
+                    await interaction.editReply({ embeds: [createHwEmbed()], components: [row1, row2] });
+                    msg.delete().catch(console.error);
                     return;
                 }
 
                 msg.delete().catch(console.error);
     
-                const data = JSON.parse(fs.readFileSync(hwPath, 'utf-8'));
-
-                if (index < 1 || index > data.length) {
-                    await msg.reply({ content: `범위 내의 숫자를 입력해주세요. (1 ~ ${data.length})`, flags: MessageFlags.Ephemeral});
-                    return ; 
-                }
-
                 const removed = data.splice(index - 1, 1);
                 fs.writeFileSync(hwPath, JSON.stringify(data, null, 2));
 
-                interaction.message.delete().catch(console.error);
-                await msg.channel.send({ embeds: [createHwEmbed()], components: [row1, row2] });
+                await interaction.editReply({ embeds: [createHwEmbed()], components: [row1, row2] });
             });
         },
     }
