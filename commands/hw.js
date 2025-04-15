@@ -120,6 +120,20 @@ module.exports = {
         },
 
         hw_modify_btn: async (interaction) => {
+            const row1 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                .setCustomId('')
+                .setLabel('')
+                .setStyle(ButtonStyle.Secondary)
+            )
+
+            const row2 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                .setCustomId('delete_btn')
+                .setLabel('취소')
+                .setStyle(ButtonStyle.Danger),
+            )
+
             
         },
 
